@@ -1,7 +1,7 @@
 # 📌 Description
 This project utilizes [mmpose](https://github.com/open-mmlab/mmpose) for human pose estimation (HPE). It includes dataset processing and supports Docker-based deployment.
 
-## 📂 Project Structure
+# 📂 Project Structure
 
 - **data/**: Contains all the data needed for the project.
   - **source/**: This folder includes classes, such as the `PoseEstimator` and the `main.py` file.
