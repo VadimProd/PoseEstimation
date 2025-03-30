@@ -193,7 +193,13 @@ class PoseEstimator():
 
     def download_configs(self) -> None:
         try:
-            os.system('mim download mmpose --config ae_hrnet-w32_8xb24-300e_coco-512x512  --dest ../configs/')
-            os.system('mim download mmpose --config td-hm_hrnet-w32_8xb64-210e_coco-256x192.py  --dest ../configs/')
+            bottomup_config = '../configs/ae_hrnet-w32_8xb24-300e_coco-512x512.py'
+            topdown_config = '../configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192.pth'
+
+            if not os.path.isfile(bottomup_config):
+                os.system('mim download mmpose --config ae_hrnet-w32_8xb24-300e_coco-512x512  --dest ../configs/')
+            elif not os.path.isfile(topdown_config):
+                os.system('mim download mmpose --config td-hm_hrnet-w32_8xb64-210e_coco-256x192  --dest ../configs/')
+
         except Exception as e:
             print(f"Error: {e}")
