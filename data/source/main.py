@@ -2,11 +2,7 @@ from PoseEstimator import PoseEstimator
 
 
 if __name__ == '__main__':
-    estimator = PoseEstimator(
-        config_file='../configs/ae_hrnet-w32_8xb24-300e_coco-512x512.py',
-        checkpoint_file='../configs/hrnet_w32_coco_512x512-bcb8c247_20200816.pth',
-        method='bottomup'
-    )
+    estimator = PoseEstimator(method='bottomup')
 
     # estimator = PoseEstimator(
     #     config_file='/mmpose/data/configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192.py',
@@ -15,8 +11,8 @@ if __name__ == '__main__':
     # )
 
     estimator.process(
-        input_path='../test_data/video/video2.mp4',
-        output_path='../test_data/out/video2_out.mp4'
+        input_path='../test_data/video/video1.mp4',
+        output_path='../test_data/out/video1_out.mp4'
     )
 
     # estimator.process(

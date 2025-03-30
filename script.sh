@@ -22,7 +22,36 @@ docker_start() {
 
 # Show help
 usage() {
-    echo "Usage: $0 {clean|docker-build|help}"
+    echo ""
+    echo "********************************************"
+    echo "* MMPose Management Script                *"
+    echo "* Version: 1.0                            *"
+    echo "********************************************"
+    echo ""
+    echo "Available commands:"
+    echo ""
+    echo "clean         - Cleans temporary files"
+    echo "                 Deletes contents of:"
+    echo "                 - ./data/configs/"
+    echo "                 - ./test_data/out/"
+    echo ""
+    echo "docker-build  - Builds Docker image with:"
+    echo "                 - PyTorch with CUDA support"
+    echo "                 - MMPose framework"
+    echo "                 - All required dependencies"
+    echo ""
+    echo "docker-start  - Runs Docker container with:"
+    echo "                 - GPU access enabled"
+    echo "                 - 8GB shared memory"
+    echo "                 - ./data mounted to /mmpose/data"
+    echo ""
+    echo "help          - Shows this help message"
+    echo ""
+    echo "Example usage:"
+    echo "  $0 docker-build   # Build the image"
+    echo "  $0 docker-start   # Run the container"
+    echo "  $0 clean          # Clean temp files"
+    echo ""
 }
 
 # Check args

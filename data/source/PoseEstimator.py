@@ -15,26 +15,22 @@ from mmpose.apis import init_model, inference_topdown, inference_bottomup
 class PoseEstimator():
     def __init__(
         self, 
-        config_file: str, 
-        checkpoint_file: str,
         method: Literal['topdown', 'bottomup'] = 'bottomup'
     ):
         """
         Initialize the model.
         
         Args:
-            config_file: Path to the model configuration file
-            checkpoint_file: Path to model weights file
             method: Detection method ('topdown' or 'bottomup')
         """
-        self.config_file = config_file
-        self.checkpoint_file = checkpoint_file
+        self.config_file = ''
+        self.checkpoint_file = ''
         self.method = method.lower()
         self.pose_model = None
         self.visualizer = None
         
-        self.init_model()
         self.download_configs()
+        self.init_model()
     
     def process(
         self,
@@ -194,12 +190,19 @@ class PoseEstimator():
     def download_configs(self) -> None:
         try:
             bottomup_config = '../configs/ae_hrnet-w32_8xb24-300e_coco-512x512.py'
-            topdown_config = '../configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192.pth'
+            topdown_config = '../configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192.py'
 
             if not os.path.isfile(bottomup_config):
                 os.system('mim download mmpose --config ae_hrnet-w32_8xb24-300e_coco-512x512  --dest ../configs/')
             elif not os.path.isfile(topdown_config):
                 os.system('mim download mmpose --config td-hm_hrnet-w32_8xb64-210e_coco-256x192  --dest ../configs/')
+
+            if self.method == 'bottomup':
+                self.config_file = '../configs/ae_hrnet-w32_8xb24-300e_coco-512x512.py'
+                self.checkpoint_file = '../configs/hrnet_w32_coco_512x512-bcb8c247_20200816.pth'
+            else:
+                self.config_file = '../configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192.py'
+                self.checkpoint_file = '../configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192-81c58e40_20220909.pth'
 
         except Exception as e:
             print(f"Error: {e}")
