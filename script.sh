@@ -3,7 +3,7 @@
 # Clean files
 clean() {
     echo "Cleaning files ..."
-    rm -rf ./data/configs/* ./test_data/out/*
+    rm -rf ./data/configs/*.py ./data/configs/*.pth ./test_data/out/*
     echo "Cleaning completed"
 }
 

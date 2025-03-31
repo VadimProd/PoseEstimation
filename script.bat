@@ -10,7 +10,7 @@ goto usage
 
 :clean
 echo Cleaning files ...
-del /s /q ".\data\configs\*" ".\data\test_data\out\*"
+del /s /q ".\data\configs\*.py" ".\data\configs\*.pth" ".\data\test_data\out\*"
 echo Cleaning completed!
 exit /b
 
