@@ -21,7 +21,7 @@ This project utilizes [mmpose](https://github.com/open-mmlab/mmpose) for human p
 Clone the repository
 
 ```bash
-git clone 
+git clone https://github.com/VadimProd/PoseEstimation.git
 cd mmpose
 ```
 
