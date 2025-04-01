@@ -42,3 +42,12 @@ Build docker-image and start it with .sh script file
 script.sh docker-build
 script.sh docker-start
 ```
+
+# ⚡ Launch
+
+Run the pose estimation model using `main.py` with the following arguments:
+```bash
+python3 main.py \
+    --method [topdown|bottomup] \
+    --input <path_to_input_file> \
+    --output <path_to_output_file>
