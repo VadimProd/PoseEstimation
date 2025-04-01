@@ -45,7 +45,6 @@ class PoseEstimator():
         Args:
             input_path: Path to the input file (video/image)
             output_path: Path to the output file (video/image)
-            show_result: Показывать ли результат в окне
         """
         input_path = Path(input_path)
         if not input_path.exists():
