@@ -22,7 +22,7 @@ Clone the repository
 
 ```bash
 git clone https://github.com/VadimProd/PoseEstimation.git
-cd mmpose
+cd PoseEstimation
 ```
 
 ## Windows
