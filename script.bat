@@ -4,13 +4,13 @@ setlocal
 if "%1"=="" goto usage
 if "%1"=="clean" goto clean
 if "%1"=="docker-build" goto docker-build
-if "%1"=="docker-start" goto docker
+if "%1"=="docker-start" goto docker-start
 if "%1"=="help" goto usage
 goto usage
 
 :clean
 echo Cleaning files ...
-del /s /q ".\data\configs\*.py" ".\data\configs\*.pth" ".\data\test_data\out\*"
+del /s /q ".\data\configs\*.py" ".\data\configs\*.pth"
 echo Cleaning completed!
 exit /b
 
@@ -38,7 +38,6 @@ echo.
 echo clean        - Cleans temporary files
 echo                Deletes contents of:
 echo                - .\data\configs\
-echo                - .\data\test_data\out\
 echo.
 echo docker-build - Builds Docker image with:
 echo                - PyTorch with CUDA support

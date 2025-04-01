@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import time
 import os
+import torch
+import subprocess
 
 from tqdm import tqdm
 from pathlib import Path
@@ -89,7 +91,6 @@ class PoseEstimator():
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
         
-        #self._process_frames(cap, out, total_frames)
         pbar = tqdm(
             total=total_frames,
             desc="--> Video processing",
@@ -161,11 +162,14 @@ class PoseEstimator():
     ):
         cap.release()
         out.release()
-        cv2.destroyAllWindows()
     
     def init_model(self) -> None:
         try:
             print("Model initialization...")
+
+            if not torch.cuda.is_available():
+                raise RuntimeError("CUDA is not available. Check your GPU and PyTorch installation.")
+
             self.pose_model = init_model(
                 self.config_file, 
                 self.checkpoint_file, 
@@ -189,13 +193,25 @@ class PoseEstimator():
 
     def download_configs(self) -> None:
         try:
-            bottomup_config = '../configs/ae_hrnet-w32_8xb24-300e_coco-512x512.py'
-            topdown_config = '../configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192.py'
+            configs_dir = Path("../configs")
+            configs_dir.mkdir(parents=True, exist_ok=True)
 
-            if not os.path.isfile(bottomup_config):
-                os.system('mim download mmpose --config ae_hrnet-w32_8xb24-300e_coco-512x512  --dest ../configs/')
-            elif not os.path.isfile(topdown_config):
-                os.system('mim download mmpose --config td-hm_hrnet-w32_8xb64-210e_coco-256x192  --dest ../configs/')
+            bottomup_config = configs_dir / "ae_hrnet-w32_8xb24-300e_coco-512x512.py"
+            topdown_config = configs_dir / "td-hm_hrnet-w32_8xb64-210e_coco-256x192.py"
+
+            if not bottomup_config.exists():
+                subprocess.run([
+                    "mim", "download", "mmpose",
+                    "--config", "ae_hrnet-w32_8xb24-300e_coco-512x512",
+                    "--dest", str(configs_dir)
+                ], check=True)
+
+            if not topdown_config.exists():
+                subprocess.run([
+                    "mim", "download", "mmpose",
+                    "--config", "td-hm_hrnet-w32_8xb64-210e_coco-256x192",
+                    "--dest", str(configs_dir)
+                ], check=True)
 
             if self.method == 'bottomup':
                 self.config_file = '../configs/ae_hrnet-w32_8xb24-300e_coco-512x512.py'

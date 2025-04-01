@@ -3,7 +3,7 @@
 # Clean files
 clean() {
     echo "Cleaning files ..."
-    rm -rf ./data/configs/*.py ./data/configs/*.pth ./test_data/out/*
+    rm -rf ./data/configs/*.py ./data/configs/*.pth
     echo "Cleaning completed"
 }
 
@@ -33,7 +33,6 @@ usage() {
     echo "clean         - Cleans temporary files"
     echo "                 Deletes contents of:"
     echo "                 - ./data/configs/"
-    echo "                 - ./test_data/out/"
     echo ""
     echo "docker-build  - Builds Docker image with:"
     echo "                 - PyTorch with CUDA support"
