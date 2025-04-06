@@ -12,6 +12,8 @@ from typing import Union, Literal
 from mmpose.visualization import PoseLocalVisualizer
 from mmpose.structures import PoseDataSample, merge_data_samples
 from mmpose.apis import init_model, inference_topdown, inference_bottomup
+from mmdet.apis import init_detector, inference_detector
+from mmpose.structures.bbox import bbox_xywh2xyxy, bbox_xyxy2xywh
 
 
 class PoseEstimator():
@@ -30,8 +32,15 @@ class PoseEstimator():
         self.method = method.lower()
         self.pose_model = None
         self.visualizer = None
+        self.det_model = None
         
         self.download_configs()
+
+        self.config_file = '../configs/rtmpose-m_8xb256-420e_coco-256x192.py'
+        self.checkpoint_file = '../configs/rtmpose-m_simcc-coco_pt-aic-coco_420e-256x192-d8dd5ca4_20230127.pth'
+        self.det_config_file = '../configs/faster-rcnn_r50_fpn_1x_coco.py'
+        self.det_checkpoint_file = '../configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth'
+
         self.init_model()
     
     def process(
@@ -115,29 +124,59 @@ class PoseEstimator():
         if output_path:
             print(f"\nThe result has been saved in: {output_path}")
 
+    def _detect_person(
+        self,
+        frame: np.ndarray
+    ) -> np.ndarray:
+
+        det_result = inference_detector(self.det_model, frame)
+        pred_instances = det_result.pred_instances
+
+        bboxes = pred_instances.bboxes.cpu().numpy()
+        scores = pred_instances.scores.cpu().numpy()
+        labels = pred_instances.labels.cpu().numpy()
+
+        person_bboxes = bboxes[(labels == 0) & (scores > 0.5)]
+        return person_bboxes.astype(np.float32)
+
     def _process_frame(
         self, 
         frame: np.ndarray
     ) -> np.ndarray:
+
         if self.method == 'topdown':
-            results = inference_topdown(self.pose_model, frame)
+            
+            results = inference_topdown(
+                self.pose_model, 
+                frame, 
+                bboxes=self._detect_person(frame), 
+                bbox_format='xyxy'
+            )
         else:
             results = inference_bottomup(self.pose_model, frame)
         
-        pred_instances = merge_data_samples(results).pred_instances
+        merge_result = merge_data_samples(results)
+        pred_instances = merge_result.pred_instances
+
+        if hasattr(pred_instances, 'bboxes'):
+            bboxes = pred_instances.bboxes
+            print(f"After topdown: {bbox_xyxy2xywh(bboxes)}")
+
         vis_frame = self.visualizer.add_datasample(
             'result',
             frame,
             data_sample=PoseDataSample(pred_instances=pred_instances),
-            draw_gt=False,
+            draw_gt=True,
             draw_heatmap=False,
-            draw_bbox=False,
+            draw_bbox=True,
             show_kpt_idx=False,
             skeleton_style='mmpose',
             show=False,
             wait_time=0,
             kpt_thr=0.5
         )
+
+        #print(f'Coordinates: {pred_instances}')
         
         return cv2.cvtColor(vis_frame, cv2.COLOR_RGB2BGR)
     
@@ -184,6 +223,12 @@ class PoseEstimator():
             self.visualizer.set_dataset_meta(
                 self.pose_model.dataset_meta,
                 skeleton_style='mmpose'
+            )
+
+            self.det_model = init_detector(
+                self.det_config_file,
+                self.det_checkpoint_file,
+                device='cuda:0'
             )
         except Exception as e:
             print(f"Error: {str(e)}")
