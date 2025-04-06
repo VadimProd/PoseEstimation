@@ -29,18 +29,15 @@ class PoseEstimator():
         """
         self.config_file = ''
         self.checkpoint_file = ''
+        self.det_config_file = ''
+        self.det_checkpoint_file = ''
+
         self.method = method.lower()
         self.pose_model = None
         self.visualizer = None
         self.det_model = None
         
         self.download_configs()
-
-        self.config_file = '../configs/rtmpose-m_8xb256-420e_coco-256x192.py'
-        self.checkpoint_file = '../configs/rtmpose-m_simcc-coco_pt-aic-coco_420e-256x192-d8dd5ca4_20230127.pth'
-        self.det_config_file = '../configs/faster-rcnn_r50_fpn_1x_coco.py'
-        self.det_checkpoint_file = '../configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth'
-
         self.init_model()
     
     def process(
@@ -225,6 +222,8 @@ class PoseEstimator():
                 skeleton_style='mmpose'
             )
 
+            print(self.det_checkpoint_file)
+
             self.det_model = init_detector(
                 self.det_config_file,
                 self.det_checkpoint_file,
@@ -240,29 +239,29 @@ class PoseEstimator():
             configs_dir = Path("../configs")
             configs_dir.mkdir(parents=True, exist_ok=True)
 
-            bottomup_config = configs_dir / "ae_hrnet-w32_8xb24-300e_coco-512x512.py"
-            topdown_config = configs_dir / "td-hm_hrnet-w32_8xb64-210e_coco-256x192.py"
+            configs = [
+                ["mmpose", "ae_hrnet-w32_8xb24-300e_coco-512x512.py"],
+                ["mmpose", "td-hm_hrnet-w32_8xb64-210e_coco-256x192.py"],
+                ["mmdet", "faster-rcnn_r50_fpn_1x_coco.py"]
+            ]
 
-            if not bottomup_config.exists():
-                subprocess.run([
-                    "mim", "download", "mmpose",
-                    "--config", "ae_hrnet-w32_8xb24-300e_coco-512x512",
-                    "--dest", str(configs_dir)
-                ], check=True)
-
-            if not topdown_config.exists():
-                subprocess.run([
-                    "mim", "download", "mmpose",
-                    "--config", "td-hm_hrnet-w32_8xb64-210e_coco-256x192",
-                    "--dest", str(configs_dir)
-                ], check=True)
+            for lib, config in configs:
+                if not (configs_dir / config).exists():
+                    subprocess.run([
+                        "mim", "download", lib,
+                        "--config", config[:-3],
+                        "--dest", str(configs_dir)
+                    ], check=True)
 
             if self.method == 'bottomup':
-                self.config_file = '../configs/ae_hrnet-w32_8xb24-300e_coco-512x512.py'
-                self.checkpoint_file = '../configs/hrnet_w32_coco_512x512-bcb8c247_20200816.pth'
+                self.config_file = str(configs_dir) + "/ae_hrnet-w32_8xb24-300e_coco-512x512.py"
+                self.checkpoint_file = str(configs_dir) + "/hrnet_w32_coco_512x512-bcb8c247_20200816.pth"
             else:
-                self.config_file = '../configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192.py'
-                self.checkpoint_file = '../configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192-81c58e40_20220909.pth'
+                self.config_file = str(configs_dir) + "/td-hm_hrnet-w32_8xb64-210e_coco-256x192.py"
+                self.checkpoint_file = str(configs_dir) + "/td-hm_hrnet-w32_8xb64-210e_coco-256x192-81c58e40_20220909.pth"
+
+            self.det_config_file = str(configs_dir) + "/faster-rcnn_r50_fpn_1x_coco.py"
+            self.det_checkpoint_file = str(configs_dir) + "/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
         except Exception as e:
             print(f"Error: {e}")
