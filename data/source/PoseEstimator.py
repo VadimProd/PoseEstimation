@@ -12,8 +12,10 @@ from typing import Union, Literal
 from mmpose.visualization import PoseLocalVisualizer
 from mmpose.structures import PoseDataSample, merge_data_samples
 from mmpose.apis import init_model, inference_topdown, inference_bottomup
-from mmdet.apis import init_detector, inference_detector
 from mmpose.structures.bbox import bbox_xywh2xyxy, bbox_xyxy2xywh
+from mmpose.utils import adapt_mmdet_pipeline
+
+from mmdet.apis import init_detector, inference_detector
 
 
 class PoseEstimator():
@@ -27,6 +29,7 @@ class PoseEstimator():
         Args:
             method: Detection method ('topdown' or 'bottomup')
         """
+        
         self.config_file = ''
         self.checkpoint_file = ''
         self.det_config_file = ''
@@ -126,20 +129,29 @@ class PoseEstimator():
         frame: np.ndarray
     ) -> np.ndarray:
 
-        det_result = inference_detector(self.det_model, frame)
-        pred_instances = det_result.pred_instances
+        try:
+            #print(f"\n[+] DEBUG: {frame.shape}\n")
+            det_result = inference_detector(self.det_model, frame)
+            pred_instances = det_result.pred_instances
 
-        bboxes = pred_instances.bboxes.cpu().numpy()
-        scores = pred_instances.scores.cpu().numpy()
-        labels = pred_instances.labels.cpu().numpy()
-
-        person_bboxes = bboxes[(labels == 0) & (scores > 0.5)]
-        return person_bboxes.astype(np.float32)
+            bboxes = pred_instances.bboxes.cpu().numpy()
+            scores = pred_instances.scores.cpu().numpy()
+            labels = pred_instances.labels.cpu().numpy()
+            
+            person_bboxes = bboxes[(labels == 0) & (scores > 0.5)]
+            # if len(person_bboxes) > 0:
+            #     return [person_bboxes.astype(np.float32)[0]]
+            return person_bboxes.astype(np.float32)
+        except Exception as e:
+            print(f"\nError: {e}")
+            exit(0)
 
     def _process_frame(
         self, 
         frame: np.ndarray
     ) -> np.ndarray:
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         if self.method == 'topdown':
             
@@ -150,6 +162,7 @@ class PoseEstimator():
                 bbox_format='xyxy'
             )
         else:
+            #print("\n--> TUT <--\n")
             results = inference_bottomup(self.pose_model, frame)
         
         merge_result = merge_data_samples(results)
@@ -157,13 +170,15 @@ class PoseEstimator():
 
         if hasattr(pred_instances, 'bboxes'):
             bboxes = pred_instances.bboxes
-            print(f"After topdown: {bbox_xyxy2xywh(bboxes)}")
+            #print(f"After topdown xyxy: {bboxes}")
+            bboxes = bbox_xyxy2xywh(bboxes)
+            #print(f"After topdown: {bboxes}, area: {bboxes[0][2] * bboxes[0][3]}")
 
         vis_frame = self.visualizer.add_datasample(
             'result',
             frame,
             data_sample=PoseDataSample(pred_instances=pred_instances),
-            draw_gt=True,
+            draw_gt=False,
             draw_heatmap=False,
             draw_bbox=True,
             show_kpt_idx=False,
@@ -173,7 +188,7 @@ class PoseEstimator():
             kpt_thr=0.5
         )
 
-        #print(f'Coordinates: {pred_instances}')
+        #print(f'Coordinates: {pred_instances}\nnum_keypoints: {len(pred_instances.keypoints[0])}')
         
         return cv2.cvtColor(vis_frame, cv2.COLOR_RGB2BGR)
     
@@ -222,13 +237,14 @@ class PoseEstimator():
                 skeleton_style='mmpose'
             )
 
-            print(self.det_checkpoint_file)
-
             self.det_model = init_detector(
                 self.det_config_file,
                 self.det_checkpoint_file,
                 device='cuda:0'
             )
+            self.det_model.cfg = adapt_mmdet_pipeline(self.det_model.cfg)
+
+            #if self.method == 'topdown':
         except Exception as e:
             print(f"Error: {str(e)}")
         finally:
@@ -259,9 +275,8 @@ class PoseEstimator():
             else:
                 self.config_file = str(configs_dir) + "/td-hm_hrnet-w32_8xb64-210e_coco-256x192.py"
                 self.checkpoint_file = str(configs_dir) + "/td-hm_hrnet-w32_8xb64-210e_coco-256x192-81c58e40_20220909.pth"
-
-            self.det_config_file = str(configs_dir) + "/faster-rcnn_r50_fpn_1x_coco.py"
-            self.det_checkpoint_file = str(configs_dir) + "/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
+                self.det_config_file = str(configs_dir) + "/faster-rcnn_r50_fpn_1x_coco.py"
+                self.det_checkpoint_file = str(configs_dir) + "/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
         except Exception as e:
             print(f"Error: {e}")
