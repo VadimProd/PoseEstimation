@@ -34,8 +34,9 @@ class PoseEstimator():
         self.checkpoint_file = ''
         self.det_config_file = ''
         self.det_checkpoint_file = ''
-
+        
         self.method = method.lower()
+        self.preds = None
         self.pose_model = None
         self.visualizer = None
         self.det_model = None
@@ -146,6 +147,27 @@ class PoseEstimator():
             print(f"\nError: {e}")
             exit(0)
 
+    def get_pred(
+        self,
+        image_path: str
+    ):
+
+        frame = cv2.imread(image_path)
+        if frame is None:
+            raise IOError(f"Failed to read image: {image_path}")
+
+        if self.method == 'topdown':
+            results = inference_topdown(
+                self.pose_model, 
+                frame, 
+                bboxes=self._detect_person(frame), 
+                bbox_format='xyxy'
+            )
+        else:
+            results = inference_bottomup(self.pose_model, frame)
+
+        return merge_data_samples(results).pred_instances
+
     def _process_frame(
         self, 
         frame: np.ndarray
@@ -162,7 +184,6 @@ class PoseEstimator():
                 bbox_format='xyxy'
             )
         else:
-            #print("\n--> TUT <--\n")
             results = inference_bottomup(self.pose_model, frame)
         
         merge_result = merge_data_samples(results)
@@ -188,7 +209,7 @@ class PoseEstimator():
             kpt_thr=0.5
         )
 
-        #print(f'Coordinates: {pred_instances}\nnum_keypoints: {len(pred_instances.keypoints[0])}')
+        print(f'Coordinates: {pred_instances}\n')
         
         return cv2.cvtColor(vis_frame, cv2.COLOR_RGB2BGR)
     
