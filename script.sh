@@ -10,13 +10,13 @@ clean() {
 # Build docker-image
 docker_build() {
     echo "Building docker-image ..."
-    docker build -t mmpose ./mmpose/docker/
+    docker build -t mmpose .
     echo "Building completed"
 }
 
 docker_start() {
     echo "Starting docker-container"
-    docker run --gpus all --shm-size=8g -it -v .\data\:/mmpose/data mmpose
+    docker run --gpus all --shm-size=8g -it -v ./data/:/mmpose/data mmpose
     echo "Starting container completed"
 }
 

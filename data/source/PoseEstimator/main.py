@@ -1,10 +1,10 @@
-from PoseEstimator import PoseEstimator
+from data.source.PoseEstimator.PoseEstimator import PoseEstimator
 import argparse
 
 
 def main():
     parser = argparse.ArgumentParser(description="Pose Estimation Tool")
-    parser.add_argument("--method", choices=["topdown", "bottomup"], default="bottomup")
+    parser.add_argument("--method", choices=["topdown", "bottomup", "hybrid"], default="bottomup")
     parser.add_argument("--input", type=str, required=True, help="Input image/video path")
     parser.add_argument("--output", type=str, required=True, help="Output path")
     args = parser.parse_args()

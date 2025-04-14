@@ -1,2 +1,7 @@
 data/configs/
-data/evaluation/val2017/
+data/source/evaluation/dataset/
+testing/
+
+.DS_Store
+Dockerfile-cpu
+tmp.md

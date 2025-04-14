@@ -108,7 +108,6 @@ class PoseEstimator():
             colour="#00ff00", # green
             ncols=100,
         )
-        frame_count = 0
             
         while True:
             ret, frame = cap.read()
@@ -131,7 +130,6 @@ class PoseEstimator():
     ) -> np.ndarray:
 
         try:
-            #print(f"\n[+] DEBUG: {frame.shape}\n")
             det_result = inference_detector(self.det_model, frame)
             pred_instances = det_result.pred_instances
 
@@ -140,21 +138,22 @@ class PoseEstimator():
             labels = pred_instances.labels.cpu().numpy()
             
             person_bboxes = bboxes[(labels == 0) & (scores > 0.5)]
-            # if len(person_bboxes) > 0:
-            #     return [person_bboxes.astype(np.float32)[0]]
             return person_bboxes.astype(np.float32)
         except Exception as e:
             print(f"\nError: {e}")
             exit(0)
 
     def get_pred(
-        self,
-        image_path: str
+        self, image
     ):
-
-        frame = cv2.imread(image_path)
-        if frame is None:
-            raise IOError(f"Failed to read image: {image_path}")
+        if isinstance(image, str):
+            frame = cv2.imread(image)
+            if frame is None:
+                raise IOError(f"Failed to read image: {image}")
+        elif isinstance(image, np.ndarray):
+            frame = image
+        else:
+            raise TypeError("Input must be a file path (str) or an image array (np.ndarray)")
 
         if self.method == 'topdown':
             results = inference_topdown(
@@ -191,9 +190,7 @@ class PoseEstimator():
 
         if hasattr(pred_instances, 'bboxes'):
             bboxes = pred_instances.bboxes
-            #print(f"After topdown xyxy: {bboxes}")
             bboxes = bbox_xyxy2xywh(bboxes)
-            #print(f"After topdown: {bboxes}, area: {bboxes[0][2] * bboxes[0][3]}")
 
         vis_frame = self.visualizer.add_datasample(
             'result',
@@ -203,10 +200,10 @@ class PoseEstimator():
             draw_heatmap=False,
             draw_bbox=True,
             show_kpt_idx=False,
-            skeleton_style='mmpose',
+            skeleton_style='coco',
             show=False,
             wait_time=0,
-            kpt_thr=0.5
+            kpt_thr=0.1
         )
 
         print(f'Coordinates: {pred_instances}\n')
@@ -255,7 +252,7 @@ class PoseEstimator():
 
             self.visualizer.set_dataset_meta(
                 self.pose_model.dataset_meta,
-                skeleton_style='mmpose'
+                skeleton_style='coco'
             )
 
             self.det_model = init_detector(
@@ -264,8 +261,8 @@ class PoseEstimator():
                 device='cuda:0'
             )
             self.det_model.cfg = adapt_mmdet_pipeline(self.det_model.cfg)
-
-            #if self.method == 'topdown':
+            self.pose_model.cfg.test_cfg.flip_test = True
+            
         except Exception as e:
             print(f"Error: {str(e)}")
         finally:
@@ -273,13 +270,13 @@ class PoseEstimator():
 
     def download_configs(self) -> None:
         try:
-            configs_dir = Path("../configs")
+            configs_dir = Path("../../configs")
             configs_dir.mkdir(parents=True, exist_ok=True)
 
             configs = [
                 ["mmpose", "ae_hrnet-w32_8xb24-300e_coco-512x512.py"],
-                ["mmpose", "td-hm_hrnet-w32_8xb64-210e_coco-256x192.py"],
-                ["mmdet", "faster-rcnn_r50_fpn_1x_coco.py"]
+                ["mmpose", "td-hm_hrnet-w48_8xb32-210e_coco-256x192.py"],
+                ["mmdet", "faster-rcnn_x101-64x4d_fpn_1x_coco.py"]
             ]
 
             for lib, config in configs:
@@ -294,10 +291,10 @@ class PoseEstimator():
                 self.config_file = str(configs_dir) + "/ae_hrnet-w32_8xb24-300e_coco-512x512.py"
                 self.checkpoint_file = str(configs_dir) + "/hrnet_w32_coco_512x512-bcb8c247_20200816.pth"
             else:
-                self.config_file = str(configs_dir) + "/td-hm_hrnet-w32_8xb64-210e_coco-256x192.py"
-                self.checkpoint_file = str(configs_dir) + "/td-hm_hrnet-w32_8xb64-210e_coco-256x192-81c58e40_20220909.pth"
-                self.det_config_file = str(configs_dir) + "/faster-rcnn_r50_fpn_1x_coco.py"
-                self.det_checkpoint_file = str(configs_dir) + "/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
+                self.config_file = str(configs_dir) + "/td-hm_hrnet-w48_8xb32-210e_coco-256x192.py"
+                self.checkpoint_file = str(configs_dir) + "/td-hm_hrnet-w48_8xb32-210e_coco-256x192-0e67c616_20220913.pth"
+                self.det_config_file = str(configs_dir) + "/faster-rcnn_x101-64x4d_fpn_1x_coco.py"
+                self.det_checkpoint_file = str(configs_dir) + "/faster_rcnn_x101_64x4d_fpn_1x_coco_20200204-833ee192.pth"
 
         except Exception as e:
             print(f"Error: {e}")
