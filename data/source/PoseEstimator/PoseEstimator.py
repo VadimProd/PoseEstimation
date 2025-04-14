@@ -14,7 +14,6 @@ from mmpose.structures import PoseDataSample, merge_data_samples
 from mmpose.apis import init_model, inference_topdown, inference_bottomup
 from mmpose.structures.bbox import bbox_xywh2xyxy, bbox_xyxy2xywh
 from mmpose.utils import adapt_mmdet_pipeline
-
 from mmdet.apis import init_detector, inference_detector
 
 
