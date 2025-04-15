@@ -205,7 +205,7 @@ class PoseEstimator():
             kpt_thr=0.1
         )
 
-        print(f'Coordinates: {pred_instances}\n')
+        # print(f'Coordinates: {pred_instances}\n')
         
         return cv2.cvtColor(vis_frame, cv2.COLOR_RGB2BGR)
     

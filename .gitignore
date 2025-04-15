@@ -1,7 +1,7 @@
 data/configs/
 data/source/evaluation/dataset/
 testing/
+evaluation/
 
 .DS_Store
-Dockerfile-cpu
 tmp.md
