@@ -1,6 +1,7 @@
 data/configs/
 data/source/evaluation/dataset/
-testing/
+data/source/animation/fit3d_test/
+data/source/animation/mpi_inf_3dhp/
 
 .DS_Store
 Dockerfile-cpu

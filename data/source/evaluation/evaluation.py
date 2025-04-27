@@ -207,7 +207,7 @@ def predict_images(images_path: str, out_json: str):
     with open(out_json, 'w') as f:
         json.dump(coco_result, f, indent=4)
 
-def calc_metrics(type: str, coco_path: str, pred_path: str):
+def calc_metrics(type: str, coco_path: str, pred_path: str, threshold: float):
     coco_gt = COCO(coco_path)
     coco_dt = coco_gt.loadRes(pred_path)
 
@@ -241,7 +241,7 @@ def calc_metrics(type: str, coco_path: str, pred_path: str):
         mean = np.mean(max_oks_per_dt)
         total += mean
         #print(f"Image {id}\t : \t{mean}")
-        if mean < 0.5:
+        if mean < threshold:
             bad_images.append(id)
             print(f"Image {id}\t : \t{mean}")
     print(f"Total: {total/len(ids)}")
@@ -259,9 +259,10 @@ if __name__ == '__main__':
     # )
 
     bad_images = calc_metrics(
-        type='bbox', #type='keypoints', 
-        coco_path="../predictions/person_keypoints_val2017_filtered.json",
-        pred_path="../predictions/predictions_topdown.json"
+        type='keypoints', #type='keypoints', 
+        coco_path="predictions/person_keypoints_val2017_filtered.json",
+        pred_path="predictions/predictions_topdown.json",
+        threshold=0.4
     )
     #print(f"Bad images: {bad_images}")
     print(f"Bad images cnt: {len(bad_images)}")
