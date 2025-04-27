@@ -165,12 +165,9 @@ def predict_images(images_path: str, out_json: str):
     )
     
     coco_result = []
-    cnt = 0
 
     for img in imgs:
-        if cnt == 50:
-            break
-        pred_instances = estimator.get_pred(image_path=str(img))
+        pred_instances = estimator.get_pred(image=str(img))
 
         bboxes = []
         if hasattr(pred_instances, 'bboxes'):
@@ -183,7 +180,7 @@ def predict_images(images_path: str, out_json: str):
             if len(bboxes) != 0:
                 bbox = [float(coord) for coord in bboxes[i]]
             else:
-                bbox = [0, 0, 0, 0]
+                bbox = [0.0, 0.0, 0.0, 0.0]
             
             keypoints_with_visibility = []
             for (x, y), v in zip(keypoints_xy, keypoints_visible):
@@ -202,7 +199,6 @@ def predict_images(images_path: str, out_json: str):
             }
             coco_result.append(res)
         pbar.update(1)
-        cnt += 1
 
     with open(out_json, 'w') as f:
         json.dump(coco_result, f, indent=4)
@@ -249,8 +245,8 @@ def calc_metrics(type: str, coco_path: str, pred_path: str, threshold: float):
 
 if __name__ == '__main__':
     # predict_images(
-    #     images_path="../evaluation/val2017",
-    #     out_json="../evaluation/predictions_bottomup.json"
+    #     images_path="../../evaluation/val2017",
+    #     out_json="predictions/predictions_bottomup.json"
     # )
 
     # predict_video(
@@ -261,102 +257,7 @@ if __name__ == '__main__':
     bad_images = calc_metrics(
         type='keypoints', #type='keypoints', 
         coco_path="predictions/person_keypoints_val2017_filtered.json",
-        pred_path="predictions/predictions_topdown.json",
-        threshold=0.4
+        pred_path="predictions/predictions_bottomup.json"
     )
     #print(f"Bad images: {bad_images}")
-    print(f"Bad images cnt: {len(bad_images)}")
-    exit(0)
-    #
-    # Remove from annotation images without people
-    #
-
-    with open('/mmpose/data/evaluation/person_keypoints_val2017_filtered.json', 'r') as f:
-        coco_data = json.load(f)
-
-    annotations = coco_data['annotations']
-    images = coco_data['images']
-
-    #
-    # Group annotations by image_id
-    #
-    
-    ann_by_image = defaultdict(list)
-    for ann in annotations:
-        ann_by_image[ann['image_id']].append(ann)
-
-    #
-    # Фильтрация: оставляем image_id, у которых num_keypoints > 1 хотя бы у одного человека
-    #
-    
-    valid_image_ids = set()
-    deleted = 0
-    for image_id in bad_images:
-        anns = ann_by_image.get(image_id, [])
-
-        if any(ann['num_keypoints'] > 16 for ann in anns):
-            valid_image_ids.add(image_id)
-        else:
-            deleted += 1
-    print(f"Deleted: {deleted}")
-
-    # 
-    # Новые аннотации: удаляем аннотации только для `image_id`, которые остались плохими
-    #
-    
-    filtered_annotations = [ann for ann in annotations if ann['image_id'] not in bad_images or ann['image_id'] in valid_image_ids]
-
-    #
-    #  Новые изображения: оставляем только те, которые ещё используются
-    #
-
-    remaining_ids = {ann['image_id'] for ann in filtered_annotations}
-    filtered_images = [img for img in images if img['id'] in remaining_ids]
-
-    #
-    # Сохраняем обновлённый файл
-    #
-
-    coco_data['annotations'] = filtered_annotations
-    coco_data['images'] = filtered_images
-    
-    with open('../evaluation/person_keypoints_val2017_filtered_without_bad_images.json', 'w') as f:
-        json.dump(coco_data, f, indent=4)
-
-    coco_data
-
-    #
-    # Получаем новые id
-    #
-    
-    valid_ids = []
-    for item in coco_data['annotations']:
-        id = item['image_id']
-        if not id in valid_ids:
-            valid_ids.append(id)
-
-    print(f"\nIDs: {len(valid_ids)}\n")
-
-    #
-    # Фильтрация предсказаний на основе оставшихся image_id
-    #
-
-    with open('../evaluation/predictions_topdown.json', 'r') as f:
-        preds = json.load(f)
-
-    filtered_preds = []
-    for pred in preds:
-        image_id = pred['image_id']
-        keypoints = pred.get("keypoints", [])
-        if image_id in valid_ids:
-            filtered_preds.append(pred)
-
-    with open('../evaluation/predictions_topdown_without_bad_images.json', 'w') as f:
-        json.dump(filtered_preds, f, indent=4)
-
-    bad_images = calc_metrics(
-        type='keypoints', 
-        coco_path="/mmpose/data/evaluation/person_keypoints_val2017_filtered_without_bad_images.json",
-        pred_path="/mmpose/data/evaluation/predictions_topdown_without_bad_images.json"
-    )
     print(f"Bad images cnt: {len(bad_images)}")

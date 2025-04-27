@@ -2,7 +2,9 @@ data/configs/
 data/source/evaluation/dataset/
 data/source/animation/fit3d_test/
 data/source/animation/mpi_inf_3dhp/
+data/test_data/output/
+
+__pycache__/
 
 .DS_Store
-Dockerfile-cpu
 tmp.md
