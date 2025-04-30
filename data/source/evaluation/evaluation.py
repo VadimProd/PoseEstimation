@@ -103,6 +103,15 @@ def predict_video(video_path: str, out_json: str):
     cap = cv2.VideoCapture(str(video_path))
     estimator = PoseEstimator(method="topdown")
 
+    pbar = tqdm(
+        total=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+        desc="--> Video processing",
+        unit=" frame",
+        bar_format="{l_bar}{bar:20}{r_bar}", 
+        colour="#00ff00", # green
+        ncols=100,
+    )
+
     preds = []
     while True:
         ret, frame = cap.read()
@@ -110,9 +119,7 @@ def predict_video(video_path: str, out_json: str):
             break
         
         preds.append(estimator.get_pred(image=frame))
-
-        if len(preds) == 5:
-            break
+        pbar.update(1)
 
     cap.release()
 
@@ -249,15 +256,15 @@ if __name__ == '__main__':
     #     out_json="predictions/predictions_bottomup.json"
     # )
 
-    # predict_video(
-    #     video_path="/mmpose/data/test_data/video/video1.mp4", 
-    #     out_json="video1_keypoints.json"
-    # )
-
-    bad_images = calc_metrics(
-        type='keypoints', #type='keypoints', 
-        coco_path="predictions/person_keypoints_val2017_filtered.json",
-        pred_path="predictions/predictions_bottomup.json"
+    predict_video(
+        video_path="/mmpose/data/test_data/video/warmup_right.mp4", 
+        out_json="warmup_keypoints_right.json"
     )
-    #print(f"Bad images: {bad_images}")
-    print(f"Bad images cnt: {len(bad_images)}")
+
+    # bad_images = calc_metrics(
+    #     type='keypoints', #type='keypoints', 
+    #     coco_path="predictions/person_keypoints_val2017_filtered.json",
+    #     pred_path="predictions/predictions_bottomup.json"
+    # )
+    # #print(f"Bad images: {bad_images}")
+    # print(f"Bad images cnt: {len(bad_images)}")

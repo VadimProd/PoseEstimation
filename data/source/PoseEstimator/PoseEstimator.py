@@ -240,7 +240,7 @@ class PoseEstimator():
             self.pose_model = init_model(
                 self.config_file, 
                 self.checkpoint_file, 
-                device='cpu:0'#'cuda:0'
+                device='cuda:0'
             )
             
             self.visualizer = PoseLocalVisualizer(
@@ -257,7 +257,7 @@ class PoseEstimator():
             self.det_model = init_detector(
                 self.det_config_file,
                 self.det_checkpoint_file,
-                device='cpu:0'#'cuda:0'
+                device='cuda:0'
             )
             self.det_model.cfg = adapt_mmdet_pipeline(self.det_model.cfg)
             self.pose_model.cfg.test_cfg.flip_test = True

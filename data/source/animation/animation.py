@@ -2,6 +2,7 @@ import cv2
 import glob
 import json
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Связь между суставами
 mask = []
@@ -53,8 +54,8 @@ objpoints = []
 imgpointsL = []
 imgpointsR = []
 
-imagesL = glob.glob("calibration_images/left*.jpg")
-imagesR = glob.glob("calibration_images/right*.jpg")
+imagesL = glob.glob("calibration_images/right*.jpg")
+imagesR = glob.glob("calibration_images/left*.jpg")
 image_sizeL = None
 image_sizeR = None
 
@@ -77,11 +78,21 @@ for imageL, imageR in zip(imagesL, imagesR):
         imgpointsL.append(cornersL)
         imgpointsR.append(cornersR)
 
+        # Нарисовать и отобразить углы
+        imgL = cv2.drawChessboardCorners(imgL, CHECKERBOARD, cornersL, retL)
+        imgR = cv2.drawChessboardCorners(imgR, CHECKERBOARD, cornersR, retR)
+
+        # cv2.imshow('img',imgL)
+        # cv2.imshow('img',img)
+        # cv2.waitKey(0)
+
         if image_sizeL is None:
             image_sizeL = grayL.shape[::-1]  # ширина, высота
 
         if image_sizeR is None:
             image_sizeR = grayR.shape[::-1]  # ширина, высота
+            
+# cv2.destroyAllWindows()
 
 retL, KL, distL, rvecsL, tvecsL = cv2.calibrateCamera(objpoints, imgpointsL, image_sizeL, None, None)
 retR, KR, distR, rvecsR, tvecsR = cv2.calibrateCamera(objpoints, imgpointsR, image_sizeR, None, None)
@@ -90,55 +101,43 @@ hL, wL, channelsL = imgL.shape
 hR, wR, channelsR = imgR.shape
 
 KL, rvecsL = cv2.getOptimalNewCameraMatrix(KL, distL, (wL, hL), 1, (wL, hL))
-KR, rvecsR = cv2.getOptimalNewCameraMatrix(KR, distR, (wR, hR), 1, (wL, hL))
+KR, rvecsR = cv2.getOptimalNewCameraMatrix(KR, distR, (wR, hR), 1, (wR, hR))
+
+print(f"KL = {KL}\nKR = {KR}")
+
+# ===== Stereo calibration ===== 
 
 flags = 0
 flags |= cv2.CALIB_FIX_INTRINSIC
 criteria_stereo = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-retStereo, KL, distL, KR, distR, rot, trans, essentialMatrix, fundamentalMatrix = \
-    cv2.stereoCalibrate(
-        objpoints, imgpointsL, imgpointsR, KL, 
-        distL, KR, distR, grayL.shape[::-1], criteria_stereo, flags
-    )
 
-# for fname in images:
-#     img = cv2.imread(fname)
-#     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+retStereo, _, _, _, _, R, t, E, F = cv2.stereoCalibrate(
+    objpoints, imgpointsL, imgpointsR, KL, distL, KR, distR, grayL.shape[::-1], criteria_stereo, flags
+)
 
-#     # Найти углы шахматной доски
-#     # Если на изображении найдено нужное количество углов, тогда ret = true
+# retStereo, KL, distL, KR, distR, R, t, E, F = cv2.stereoCalibrate(
+#     objpoints, imgpointsL, imgpointsR, KL, distL, KR, distR, grayL.shape[::-1], criteria_stereo, flags
+# )
 
-#     ret, corners = cv2.findChessboardCorners(
-#         gray, CHECKERBOARD, 
-#         cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_FAST_CHECK + cv2.CALIB_CB_NORMALIZE_IMAGE
-#     )
+# ===== Stereo rectification =====
 
-#     """
-#         Если желаемый номер угла обнаружен,
-#         уточняем координаты пикселей и отображаем
-#         их на изображениях шахматной доски
-#     """
+rectifyScale = 1
+R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(
+    KL, distL, KR, distR,
+    image_sizeL, R, t,
+    rectifyScale, (0,0)
+)
 
-#     if ret:
-#         objpoints.append(objp)
-#         # уточнение координат пикселей для заданных 2d точек.
-#         corners2 = cv2.cornerSubPix(
-#             image=gray, corners=corners, winSize=(11, 11), zeroZone=(-1, -1), criteria=criteria 
-#         )
-#         imgpoints.append(corners2)
-        
-#         # Нарисовать и отобразить углы
-#         img = cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
+print(f"RL = {R1}\nRR = {R2}")
+print(f"T = {t}")
 
-#         if image_size is None:
-#             image_size = gray.shape[::-1]  # ширина, высота
-#     else:
-#         print(f"Chessboard not found in {fname}")
+# ===== Stereo maps for remapping =====
 
-#     # cv2.imshow('img',img)
-#     # cv2.waitKey(0)
+map1x, map1y = cv2.initUndistortRectifyMap(KL, distL, R1, P1, image_sizeL, cv2.CV_32FC1)
+map2x, map2y = cv2.initUndistortRectifyMap(KR, distR, R2, P2, image_sizeR, cv2.CV_32FC1)
 
-# cv2.destroyAllWindows()
+rectifiedL = cv2.remap(imgL, map1x, map1y, cv2.INTER_LINEAR)
+rectifiedR = cv2.remap(imgR, map2x, map2y, cv2.INTER_LINEAR)
 
 """
 Выполнение калибровки камеры с помощью
@@ -155,6 +154,24 @@ print("✅ Calibration complete!")
 # *-------------------------------------------------------------------------------------*
 # | Восстановление глубины и 3D координат
 # *-------------------------------------------------------------------------------------*
+
+def get3Dv5(pts1, pts2):
+    # Ректифицировать (нормализовать) точки
+    pointsL_norm = cv2.undistortPoints(np.expand_dims(pts1, axis=1), KL, distL, R=R1, P=P1)
+    pointsR_norm = cv2.undistortPoints(np.expand_dims(pts2, axis=1), KR, distR, R=R2, P=P2)
+
+    # Триангуляция
+    points4D = cv2.triangulatePoints(P1, P2, pointsL_norm, pointsR_norm)
+    points3D = (points4D[:3] / points4D[3]).T
+
+    for i, point in enumerate(points3D):
+        print(f"{i}: ({point[0]}, {point[1]}, {point[2]})")
+    
+    # Проверка глубины
+    print("Минимальная Z:", np.min(points3D[:, 2]))
+    print("Максимальная Z:", np.max(points3D[:, 2]))
+
+    return points3D
 
 def get3Dv4(K1, K2, points1, points2, dist1=None, dist2=None):
     # Найти фундаментальную матрицу
@@ -189,38 +206,6 @@ def get3Dv4(K1, K2, points1, points2, dist1=None, dist2=None):
 
     # Триангуляция
     points_4d_hom = cv2.triangulatePoints(P1, P2, points1_norm.T, points2_norm.T)
-    points_3d = (points_4d_hom[:3] / points_4d_hom[3]).T  # (N, 3)
-
-    return points_3d
-
-def get3D3(K1, K2, points1, points2):
-    # Найти фундаментальную матрицу
-    F, mask = cv2.findFundamentalMat(points1, points2, cv2.FM_RANSAC)
-
-    if F is None:
-        raise ValueError("Fundamental matrix could not be computed.")
-
-    # Если камеры одинаковые, используем одну и ту же K
-    # Если разные - отдельно K1 и K2
-    E = K.T @ F @ K
-
-    # Восстановить относительную позу
-    _, R, t, mask_pose = cv2.recoverPose(E, points1, points2, K)
-
-    # Построить проектные матрицы
-    P1 = K @ np.hstack((np.eye(3), np.zeros((3, 1))))
-    P2 = K @ np.hstack((R, t))
-
-    # 4. Убираем дисторсию, если нужна
-    if dist is not None:
-        points1_norm = cv2.undistortPoints(np.expand_dims(points1, axis=1), K, dist)
-        points2_norm = cv2.undistortPoints(np.expand_dims(points2, axis=1), K, dist)
-    else:
-        points1_norm = np.expand_dims(points1, axis=1)
-        points2_norm = np.expand_dims(points2, axis=1)
-
-    # Триангуляция
-    points_4d_hom = cv2.triangulatePoints(P1, P2, points1_norm, points2_norm)
     points_3d = (points_4d_hom[:3] / points_4d_hom[3]).T  # (N, 3)
 
     return points_3d
@@ -275,49 +260,27 @@ def get3D(K, pts1, pts2):
     #print(pts3d)
     return pts3d
 
+def get3D_dev(K1, K2, R1, R2, T1, T2, pts1, pts2):
+    # Ректифицировать (нормализовать) точки
+    P1 = K1 @ np.hstack((np.eye(3), np.zeros((3,1))))  # Матрица для левой камеры
+    P2 = K2 @ np.hstack((R2, T2.reshape(3, 1)))         # Матрица для правой камеры
+
+    # Триангуляция
+    points4D = cv2.triangulatePoints(P1, P2, pts1.T, pts1.T)
+    pts_3d = (points4D[:3] / points4D[3]).T
+
+    for i, point in enumerate(pts_3d):
+        print(f"{i}: ({point[0]}, {point[1]}, {point[2]})")
+    
+    # Проверка глубины
+    print("Минимальная Z:", np.min(pts_3d[:, 2]))
+    print("Максимальная Z:", np.max(pts_3d[:, 2]))
+
+    return pts_3d
+
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
-
-image_left = [
-    [ 777.378  ,  407.94952],
-    [ 785.50085,  399.82666],
-    [ 761.1323 ,  391.70383],
-    [ 801.7465 ,  407.94952],
-    [ 728.6409 ,  407.94952],
-    [ 817.9922 ,  513.5465 ],
-    [ 696.14954,  513.5465 ],
-    [ 834.2379 ,  627.2663 ],
-    [ 663.65814,  643.512  ],
-    [ 858.60645,  732.8633 ],
-    [ 671.781  ,  749.109  ],
-    [ 801.7465 ,  732.8633 ],
-    [ 720.51807,  732.8633 ],
-    [ 793.62366,  927.8116 ],
-    [ 704.2724 ,  927.8116 ],
-    [ 793.62366, 1090.2684 ],
-    [ 696.14954, 1114.637  ]
-]
-
-image_right = [
-    [776.6102 , 329.49368],
-    [798.2364 , 315.07626],
-    [769.40155, 315.07626],
-    [827.07117, 329.49368],
-    [762.1928 , 329.49368],
-    [855.906  , 423.20685],
-    [747.77545, 423.20685],
-    [877.5321 , 531.33746],
-    [711.7319 , 531.33746],
-    [870.3234 , 632.25934],
-    [690.1058 , 617.8419 ],
-    [827.07117, 617.8419 ],
-    [754.98413, 610.6332 ],
-    [841.4886 , 790.8508 ],
-    [754.98413, 783.64215],
-    [841.4886 , 942.2337 ],
-    [747.77545, 935.02496]
-]
 
 def draw3D(frames_3d):
     global bones
@@ -343,18 +306,23 @@ def draw3D(frames_3d):
         pts = pts - center
         #pts = pts - pts[0]
         
-        # ax.set_xlim(-1, 1)
-        # ax.set_ylim(-1, 1)
-        # ax.set_zlim(0, 2)
+        # ax.set_xlim(-15, 15)
+        # ax.set_ylim(-15, 15)
+        # ax.set_zlim(-15, 15)
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
         ax.set_title(f"Frame {frame}")
         
         for indx, (i, j) in enumerate(bones):
-            # if not mask[indx]:
-            #     continue
             x = [pts[i, 0], pts[j, 0]]
             y = [pts[i, 1], pts[j, 1]]
             z = [pts[i, 2], pts[j, 2]]
             ax.plot(x, y, z, 'ro-')
+
+        # Подпись каждой точки по индексу
+        for idx, (x, y, z) in enumerate(pts):
+            ax.text(x, y, z, str(idx), fontsize=8, color='blue')
            
         return []
 
@@ -386,74 +354,71 @@ def draw2D(frames_2d):
     plt.grid(True)
     plt.show()
 
-with open('deadlift_left_keypoints.json', 'r') as f:
+with open('warmup_keypoints_left.json', 'r') as f:
     left_keypoints_json = json.load(f)
 
-with open('deadlift_right_keypoints.json', 'r') as f:
+with open('warmup_keypoints_right.json', 'r') as f:
     right_keypoints_json = json.load(f)
 
+var = 1
 frames_3d = []
-# for i in range(len(left_keypoints_json)):
-i = 0
-pts1 = np.array([np.float32(keypoint[:-1]) for keypoint in left_keypoints_json[i]], dtype=np.float32)
-pts2 = np.array([np.float32(keypoint[:-1]) for keypoint in right_keypoints_json[i]], dtype=np.float32)
-frames_3d.append(get3Dv4(KL, KR, pts1, pts2, distL, distR))
 
+if var == 1:
+    start = 130
+    for i in range(start, len(left_keypoints_json)):
+        pts1 = np.array([np.float32(keypoint[:-1]) for keypoint in left_keypoints_json[i]], dtype=np.float32)
+        pts2 = np.array([np.float32(keypoint[:-1]) for keypoint in right_keypoints_json[i]], dtype=np.float32)
+    # frames_3d.append(get3Dv4(KL, KR, pts1, pts2, distL, distR))
+        frames_3d.append(get3Dv5(pts1, pts2))
 
-# K1 = np.array([
-#     [1093.0521, 0, 461.4279],
-#     [0, 1090.2572, 441.6916],
-#     [0, 0, 1]
-# ])
+else:
+    K1 = np.array([
+        [1092.3211669921875, 0, 461.3157958984375],  # Матрица камеры левой
+        [0, 1089.9815673828125, 441.7460632324219],
+        [0, 0, 1]
+    ])
 
-# K2 = np.array([
-#     [1033.5510, 0, 476.6422],
-#     [0, 1030.6909, 448.9317],
-#     [0, 0, 1]
-# ])
+    # Пример калибровочных параметров для правой камеры
+    K2 = np.array([
+        [1035.1177978515625, 0, 476.61102294921875],  # Матрица камеры правой
+        [0, 1030.60693359375, 448.9285583496094],
+        [0, 0, 1]
+    ])
 
-# {"extrinsics": {
-#     "R": [
-#         [0.38335646046117283, 0.9235359490864682, -0.010916728797482081], 
-#         [0.13268295186324477, -0.06676567303201067, -0.9889072652121829], 
-#         [-0.9140202724817087, 0.37765552511454026, -0.14813252797047552]
-#     ], 
-#     "T": [
-#         [4.086554878406053, -1.4422745200869256, 1.5420494433064695]
-#     ]}, 
-#     "intrinsics_w_distortion": {
-#         "f": [[1099.792297001664, 1096.6764347841663]], 
-#         "c": [[461.43683547731274, 441.790963615853]], 
-#         "k": [[-0.17414236345976083, -0.05504993266882595, -0.0024645568813435183]], 
-#         "p": [[-0.0024710241226390582, 0.0006303717815666629]]
-#     }, 
-#     "intrinsics_wo_distortion": {
-#         "c": [461.4279479980469, 441.6916198730469], 
-#         "f": [1093.0521240234375, 1090.2572021484375]
-#     }
-# }
+    # Поворот и трансляция между камерами (например, из данных)
+    R1 = np.array([
+        [0.38335646046117283, 0.9235359490864682, -0.010916728797482081], 
+        [0.13268295186324477, -0.06676567303201067, -0.9889072652121829], 
+        [-0.9140202724817087, 0.37765552511454026, -0.14813252797047552]
+    ])
 
-# R1 = np.array([
-#     [0.38335646046117283, 0.9235359490864682, -0.010916728797482081],
-#     [0.13268295186324477, -0.06676567303201067, -0.9889072652121829],
-#     [-0.9140202724817087, 0.37765552511454026, -0.14813252797047552]
-# ])
-# T1 = np.array([4.086554878406053, -1.4422745200869256, 1.5420494433064695])
+    T1 = np.array([4.086554878406053, -1.4422745200869256, 1.5420494433064695])
 
-# R2 = np.array([
-#     [-0.458866846330765, 0.8885003750868004, 0.002881112471444765],
-#     [0.15795120267122098, 0.08476418995008086, -0.9838020378494962],
-#     [-0.874352694805233, -0.4509790633418825, -0.17923517934296662]
-# ])
-# T2 = np.array([3.9023938502003386, 2.1214361844482563, 1.483635123887001])
+    R2 = np.array([
+        [-0.458866846330765, 0.8885003750868004, 0.002881112471444765], 
+        [0.15795120267122098, 0.08476418995008086, -0.9838020378494962], 
+        [-0.874352694805233, -0.4509790633418825, -0.17923517934296662]
+    ])
 
-# R_rel = R2 @ R1.T
-# T_rel = T2 - R_rel @ T1
+    T2 = np.array([3.9023938502003386, 2.1214361844482563, 1.483635123887001])
 
-# frames_3d.append(get3D2(K, K, R_rel, T_rel, pts1, pts2))
-# frames_3d.append(get3D(K, pts1, pts2))
-#frames_3d.append(get3D3(K, K, pts1, pts2))
+    for i in range(len(left_keypoints_json)):
+        # i = 115
+        pts1 = np.array([np.float32(keypoint[:-1]) for keypoint in left_keypoints_json[i]], dtype=np.float32)
+        pts2 = np.array([np.float32(keypoint[:-1]) for keypoint in right_keypoints_json[i]], dtype=np.float32)
 
-draw3D(frames_3d=frames_3d)
-print(frames_3d)
+        frames_3d.append(get3D_dev(K1, K2, R1, R2, T1, T2, pts1, pts2))
+
+#draw3D(frames_3d=frames_3d)
+# print(frames_3d)
+
 #draw2D(frames_2d=pts1)
+
+
+frames_3d = [
+    [point.tolist() for point in frame]
+    for frame in frames_3d
+]
+
+with open("frames_3d.json", "w") as f:
+    json.dump(frames_3d, f, indent=4)
