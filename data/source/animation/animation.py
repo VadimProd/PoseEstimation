@@ -47,10 +47,11 @@ objp[0,:,:2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 
 # objp *= square_size
 
-# Создание вектора для хранения векторов трехмерных точек для каждого изображения шахматной доски
-objpoints = []
+# ---------------------------
+# ===== Find chessboard ===== 
+# ---------------------------
 
-# Создание вектора для хранения векторов 2D точек для каждого изображения шахматной доски
+objpoints = []
 imgpointsL = []
 imgpointsR = []
 
@@ -79,7 +80,7 @@ for imageL, imageR in zip(imagesL, imagesR):
         imgpointsL.append(cornersL)
         imgpointsR.append(cornersR)
 
-        # Нарисовать и отобразить углы
+        # Draw corners
         imgL = cv2.drawChessboardCorners(imgL, CHECKERBOARD, cornersL, retL)
         imgR = cv2.drawChessboardCorners(imgR, CHECKERBOARD, cornersR, retR)
 
@@ -279,9 +280,32 @@ def get3D(K, pts1, pts2):
     return pts3d
 
 def get3D_dev(K1, K2, R1, R2, T1, T2, pts1, pts2):
-    # Ректифицировать (нормализовать) точки
-    P1 = K1 @ np.hstack((np.eye(3), np.zeros((3,1))))  # Матрица для левой камеры
-    P2 = K2 @ np.hstack((R2, T2.reshape(3, 1)))         # Матрица для правой камеры
+       #
+    # Исправление: преобразование из мировых координат. 
+    # Мы хотим получить R_rel, T_rel — положение правой камеры относительно левой.
+    #
+
+    # Преобразуем в матрицы (на всякий случай)
+    R1 = np.array(R1)
+    T1 = np.array(T1).reshape(3, 1)
+    R2 = np.array(R2)
+    T2 = np.array(T2).reshape(3, 1)
+
+    # Вычисляем относительные R и T
+    R_rel = R2 @ R1.T
+    T_rel = T2 - R_rel @ T1
+
+    # Теперь можем построить P1 и P2 для триангуляции:
+    P1 = K1 @ np.hstack((np.eye(3), np.zeros((3,1))))  # Левая камера - опорная
+    P2 = K2 @ np.hstack((R_rel, T_rel))               # Правая камера - относительная
+
+    #
+    # End
+    #
+
+    # # Ректифицировать (нормализовать) точки
+    # P1 = K1 @ np.hstack((np.eye(3), np.zeros((3,1))))  # Матрица для левой камеры
+    # P2 = K2 @ np.hstack((R2, T2.reshape(3, 1)))         # Матрица для правой камеры
 
     # Триангуляция
     points4D = cv2.triangulatePoints(P1, P2, pts1.T, pts2.T)
