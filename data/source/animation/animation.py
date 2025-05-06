@@ -72,6 +72,7 @@ for imageL, imageR in zip(imagesL, imagesR):
     if retR and retL == True:
         objpoints.append(objp)
 
+        # Improves the accuracy of the corners found.
         cornersL = cv2.cornerSubPix(grayL, cornersL, (11, 11), (-1, -1), criteria)
         cornersR = cv2.cornerSubPix(grayR, cornersR, (11, 11), (-1, -1), criteria)
 
@@ -94,18 +95,30 @@ for imageL, imageR in zip(imagesL, imagesR):
             
 # cv2.destroyAllWindows()
 
+"""
+cv2.calibrateCamera(...) -> [
+    ret:    status (true/false)
+    K:      calibration matrices for the camera
+    dist:   distortion parameters
+    rvecs:  rotation vector
+    tvecs:  camera translation vector
+]
+"""
 retL, KL, distL, rvecsL, tvecsL = cv2.calibrateCamera(objpoints, imgpointsL, image_sizeL, None, None)
 retR, KR, distR, rvecsR, tvecsR = cv2.calibrateCamera(objpoints, imgpointsR, image_sizeR, None, None)
 
 hL, wL, channelsL = imgL.shape
 hR, wR, channelsR = imgR.shape
 
+# Calculates optimal matrices for calibration to improve output quality.
 KL, rvecsL = cv2.getOptimalNewCameraMatrix(KL, distL, (wL, hL), 1, (wL, hL))
 KR, rvecsR = cv2.getOptimalNewCameraMatrix(KR, distR, (wR, hR), 1, (wR, hR))
 
 print(f"KL = {KL}\nKR = {KR}")
 
+# ------------------------------
 # ===== Stereo calibration ===== 
+# ------------------------------
 
 flags = 0
 flags |= cv2.CALIB_FIX_INTRINSIC
@@ -122,7 +135,9 @@ print(f"R = {R}\nE = {E}\nF = {F}")
 #     objpoints, imgpointsL, imgpointsR, KL, distL, KR, distR, grayL.shape[::-1], criteria_stereo, flags
 # )
 
+# --------------------------------
 # ===== Stereo rectification =====
+# --------------------------------
 
 rectifyScale = 1
 R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(
