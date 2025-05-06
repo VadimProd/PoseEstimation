@@ -111,9 +111,12 @@ flags = 0
 flags |= cv2.CALIB_FIX_INTRINSIC
 criteria_stereo = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
+print(f"criteria_stereo = {(criteria_stereo)}")
+
 retStereo, _, _, _, _, R, t, E, F = cv2.stereoCalibrate(
     objpoints, imgpointsL, imgpointsR, KL, distL, KR, distR, grayL.shape[::-1], criteria_stereo, flags
 )
+print(f"R = {R}\nE = {E}\nF = {F}")
 
 # retStereo, KL, distL, KR, distR, R, t, E, F = cv2.stereoCalibrate(
 #     objpoints, imgpointsL, imgpointsR, KL, distL, KR, distR, grayL.shape[::-1], criteria_stereo, flags
@@ -266,7 +269,7 @@ def get3D_dev(K1, K2, R1, R2, T1, T2, pts1, pts2):
     P2 = K2 @ np.hstack((R2, T2.reshape(3, 1)))         # Матрица для правой камеры
 
     # Триангуляция
-    points4D = cv2.triangulatePoints(P1, P2, pts1.T, pts1.T)
+    points4D = cv2.triangulatePoints(P1, P2, pts1.T, pts2.T)
     pts_3d = (points4D[:3] / points4D[3]).T
 
     for i, point in enumerate(pts_3d):
@@ -364,8 +367,8 @@ var = 1
 frames_3d = []
 
 if var == 1:
-    start = 130
-    for i in range(start, len(left_keypoints_json)):
+    start = 0
+    for i in range(start, 1):#len(left_keypoints_json)):
         pts1 = np.array([np.float32(keypoint[:-1]) for keypoint in left_keypoints_json[i]], dtype=np.float32)
         pts2 = np.array([np.float32(keypoint[:-1]) for keypoint in right_keypoints_json[i]], dtype=np.float32)
     # frames_3d.append(get3Dv4(KL, KR, pts1, pts2, distL, distR))
@@ -409,16 +412,16 @@ else:
 
         frames_3d.append(get3D_dev(K1, K2, R1, R2, T1, T2, pts1, pts2))
 
-#draw3D(frames_3d=frames_3d)
+draw3D(frames_3d=frames_3d)
 # print(frames_3d)
 
 #draw2D(frames_2d=pts1)
 
 
-frames_3d = [
-    [point.tolist() for point in frame]
-    for frame in frames_3d
-]
+# frames_3d = [
+#     [point.tolist() for point in frame]
+#     for frame in frames_3d
+# ]
 
-with open("frames_3d.json", "w") as f:
-    json.dump(frames_3d, f, indent=4)
+# with open("frames_3d.json", "w") as f:
+#     json.dump(frames_3d, f, indent=4)
