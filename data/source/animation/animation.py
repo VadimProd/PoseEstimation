@@ -6,23 +6,6 @@ import matplotlib.pyplot as plt
 
 # Связь между суставами
 mask = []
-# bones = [
-#     (5, 6),              # плечи (left_shoulder – right_shoulder)
-
-#     (5, 7), (7, 9),      # левая рука: shoulder -> elbow -> wrist
-#     (6, 8), (8, 10),     # правая рука: shoulder -> elbow -> wrist
-
-#     (11, 12),            # бедра (left_hip – right_hip)
-    
-#     (11, 13), (13, 15),  # левая нога: hip -> knee -> ankle
-#     (12, 14), (14, 16),  # правая нога: hip -> knee -> ankle
-
-#     (0, 1), (1, 3),      # нос -> левый глаз -> левое ухо
-#     (0, 2), (2, 4),      # нос -> правый глаз -> правое ухо
-
-#     (0, 5), (0, 6),      # нос -> плечи (обозначим "шею")
-#     (11, 5), (12, 6)     # бедра -> плечи (корпус)
-# ]
 
 bones = [
     (5, 6),              # плечи (left_shoulder – right_shoulder)
@@ -175,20 +158,45 @@ print("✅ Calibration complete!")
 # *-------------------------------------------------------------------------------------*
 
 def get3Dv5(pts1, pts2):
-    # Ректифицировать (нормализовать) точки
-    pointsL_norm = cv2.undistortPoints(np.expand_dims(pts1, axis=1), KL, distL, R=R1, P=P1)
-    pointsR_norm = cv2.undistortPoints(np.expand_dims(pts2, axis=1), KR, distR, R=R2, P=P2)
+    # # Ректифицировать (нормализовать) точки
+    # pointsL_norm = cv2.undistortPoints(np.expand_dims(pts1, axis=1), KL, distL, R=R1, P=P1)
+    # pointsR_norm = cv2.undistortPoints(np.expand_dims(pts2, axis=1), KR, distR, R=R2, P=P2)
+
+    # # Триангуляция
+    # points4D = cv2.triangulatePoints(P1, P2, pointsL_norm, pointsR_norm)
+    # points3D = (points4D[:3] / points4D[3]).T
+
+    # Преобразуем в нужный формат
+    # pts1 = np.array(pts1, dtype=np.float32).reshape(-1, 1, 2)
+    # pts2 = np.array(pts2, dtype=np.float32).reshape(-1, 1, 2)
+
+    # Удаляем дисторсию (получаем нормализованные координаты)
+    pts1_undist = cv2.undistortPoints(pts1, KL, distL)
+    pts2_undist = cv2.undistortPoints(pts2, KR, distR)
+
+    # Проекционные матрицы для нормализованных координат
+    P1 = np.hstack((np.eye(3), np.zeros((3, 1))))  # [I | 0]
+    P2 = np.hstack((R, t))                        # [R | T]
+
+    # Приводим к нужной форме для triangulatePoints
+    pts1_undist = pts1_undist.reshape(-1, 2).T  # (2, N)
+    pts2_undist = pts2_undist.reshape(-1, 2).T
 
     # Триангуляция
-    points4D = cv2.triangulatePoints(P1, P2, pointsL_norm, pointsR_norm)
-    points3D = (points4D[:3] / points4D[3]).T
+    points4D_hom = cv2.triangulatePoints(P1, P2, pts1_undist, pts2_undist)  # shape: (4, N)
+    points3D = (points4D_hom[:3] / points4D_hom[3]).T  # shape: (N, 3)
 
     for i, point in enumerate(points3D):
         print(f"{i}: ({point[0]}, {point[1]}, {point[2]})")
     
     # Проверка глубины
-    print("Минимальная Z:", np.min(points3D[:, 2]))
-    print("Максимальная Z:", np.max(points3D[:, 2]))
+    # print("Минимальная Z:", np.min(points3D[:, 2]))
+    # print("Максимальная Z:", np.max(points3D[:, 2]))
+
+    pelvis = points3D[11]
+    points3D -= pelvis  # Смещение начала координат в таз
+
+    # print(points3D)
 
     return points3D
 
@@ -344,13 +352,14 @@ def draw3D(frames_3d):
         pts = frames_3d[frame]
         
         # Центрируем (например, по тазу — точка 0)
-        center = (pts[11] + pts[12]) / 2
-        pts = pts - center
+        # center = (pts[11] + pts[12]) / 2
+        # pts = pts - center
         #pts = pts - pts[0]
         
-        # ax.set_xlim(-15, 15)
-        # ax.set_ylim(-15, 15)
-        # ax.set_zlim(-15, 15)
+        ax.set_xlim(-5, 5)
+        ax.set_ylim(-6, 6)
+        ax.set_zlim(-5, 5)
+        
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
@@ -407,7 +416,7 @@ frames_3d = []
 
 if var == 1:
     start = 0
-    for i in range(start, 1):#len(left_keypoints_json)):
+    for i in range(start, len(left_keypoints_json)):#len(left_keypoints_json)):
         pts1 = np.array([np.float32(keypoint[:-1]) for keypoint in left_keypoints_json[i]], dtype=np.float32)
         pts2 = np.array([np.float32(keypoint[:-1]) for keypoint in right_keypoints_json[i]], dtype=np.float32)
     # frames_3d.append(get3Dv4(KL, KR, pts1, pts2, distL, distR))
