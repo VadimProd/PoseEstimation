@@ -9,3 +9,19 @@ __pycache__/
 .DS_Store
 tmp.md
 Dockerfile-cpu
+
+venv/
+*.mp4
+
+# Unity project
+data/source/animation/My\ project\ (1)/Library
+data/source/animation/My\ project\ (1)/Logs
+data/source/animation/My\ project\ (1)/Assets/annotations.txt
+.vscode/
+*.log
+*.csproj
+*.sln
+*.user
+*.pidb
+*.suo
+*.pidb.meta

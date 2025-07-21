@@ -257,8 +257,8 @@ if __name__ == '__main__':
     # )
 
     predict_video(
-        video_path="/mmpose/data/test_data/video/warmup_right.mp4", 
-        out_json="warmup_keypoints_right.json"
+        video_path="/mmpose/data/test_data/video/warmup_16_right.mp4", 
+        out_json="warmup_16_right.json"
     )
 
     # bad_images = calc_metrics(
